@@ -137,6 +137,7 @@ export class DoctorsService {
         doctor: this.toDoctorResponse(doctor),
         requestedDate: startDate,
         nextAvailableDate: startDate,
+        nextAvailableSlot: todaySchedule.slots[0] ?? null,
         searchedDays: 1,
         message: isToday
           ? `Appointments are available today on ${startDate}.`
@@ -156,6 +157,7 @@ export class DoctorsService {
         doctor: this.toDoctorResponse(doctor),
         requestedDate: startDate,
         nextAvailableDate: null,
+        nextAvailableSlot: null,
         searchedDays: searchWindow,
         message: `No appointments available in the next ${searchWindow} days. Please contact clinic.`,
         schedule: todaySchedule,
@@ -166,10 +168,11 @@ export class DoctorsService {
       doctor: this.toDoctorResponse(doctor),
       requestedDate: startDate,
       nextAvailableDate: nextAvailable.date,
+      nextAvailableSlot: nextAvailable.slot,
       searchedDays: nextAvailable.offset + 1,
       message: isToday
-        ? `No appointments available today. Next available appointment is on ${nextAvailable.date}.`
-        : `No appointments available on ${startDate}. Next available appointment is on ${nextAvailable.date}.`,
+        ? `No appointments available today. Next available appointment is on ${nextAvailable.date} at ${nextAvailable.slot.startTime}.`
+        : `No appointments available on ${startDate}. Next available appointment is on ${nextAvailable.date} at ${nextAvailable.slot.startTime}.`,
       schedule: nextAvailable.schedule,
     };
   }
@@ -246,7 +249,7 @@ export class DoctorsService {
       throw new BadRequestException({
         message: `Selected slot is not available on ${appointmentDate}.`,
         nextAvailableDate: nextAvailable?.date ?? null,
-        nextAvailableSlots: nextAvailable?.schedule.slots ?? [],
+        nextAvailableSlot: nextAvailable?.slot ?? null,
       });
     }
 
@@ -263,10 +266,17 @@ export class DoctorsService {
       const schedule = await this.buildDailySchedule(doctor, nextDate);
 
       if (schedule.availableSlots > 0) {
+        const [firstAvailableSlot] = schedule.slots;
+
         return {
           date: nextDate,
           offset,
-          schedule,
+          slot: firstAvailableSlot,
+          schedule: {
+            ...schedule,
+            availableSlots: firstAvailableSlot ? 1 : 0,
+            slots: firstAvailableSlot ? [firstAvailableSlot] : [],
+          },
         };
       }
     }

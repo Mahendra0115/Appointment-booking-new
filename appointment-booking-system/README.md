@@ -18,7 +18,7 @@ The old auth-heavy workflow has been replaced with a simpler clinic booking flow
 - Configure consulting start time, end time, and slot duration
 - Auto-calculate daily slots or cap them with a manual daily appointment limit
 - Check today’s schedule first
-- If today is full, automatically search the next working day with open slots
+- If today is full, automatically suggest the first open slot on the next available working day
 - Return a clinic-facing fallback message when no slot is available in the next configured days
 
 ## API Base URL
@@ -201,6 +201,10 @@ If slots are available on the requested date:
     },
     "requestedDate": "2026-04-22",
     "nextAvailableDate": "2026-04-22",
+    "nextAvailableSlot": {
+      "startTime": "11:00",
+      "endTime": "11:15"
+    },
     "searchedDays": 1,
     "message": "Appointments are available today on 2026-04-22.",
     "schedule": {
@@ -249,22 +253,22 @@ If today is full and the system finds the next available day:
     },
     "requestedDate": "2026-04-22",
     "nextAvailableDate": "2026-04-23",
+    "nextAvailableSlot": {
+      "startTime": "09:00",
+      "endTime": "09:15"
+    },
     "searchedDays": 2,
-    "message": "No appointments available today. Next available appointment is on 2026-04-23.",
+    "message": "No appointments available today. Next available appointment is on 2026-04-23 at 09:00.",
     "schedule": {
       "date": "2026-04-23",
       "isWorkingDay": true,
       "totalSlots": 32,
       "bookedSlots": 5,
-      "availableSlots": 27,
+      "availableSlots": 1,
       "slots": [
         {
           "startTime": "09:00",
           "endTime": "09:15"
-        },
-        {
-          "startTime": "09:15",
-          "endTime": "09:30"
         }
       ]
     }
@@ -297,6 +301,7 @@ If no slot is found in the next configured days:
     },
     "requestedDate": "2026-04-22",
     "nextAvailableDate": null,
+    "nextAvailableSlot": null,
     "searchedDays": 7,
     "message": "No appointments available in the next 7 days. Please contact clinic.",
     "schedule": {
@@ -359,16 +364,10 @@ If the selected slot is no longer available:
   "message": {
     "message": "Selected slot is not available on 2026-04-22.",
     "nextAvailableDate": "2026-04-23",
-    "nextAvailableSlots": [
-      {
-        "startTime": "09:00",
-        "endTime": "09:15"
-      },
-      {
-        "startTime": "09:15",
-        "endTime": "09:30"
-      }
-    ]
+    "nextAvailableSlot": {
+      "startTime": "09:00",
+      "endTime": "09:15"
+    }
   },
   "error": "Bad Request"
 }
@@ -444,7 +443,7 @@ Sample response:
 1. Create doctor configuration.
 2. Call `GET /api/doctors/:doctorId/availability`.
 3. If today has slots, book one of the returned slots.
-4. If today is full, use `nextAvailableDate` and returned slot list.
+4. If today is full, use `nextAvailableDate` and `nextAvailableSlot`.
 5. Submit the selected slot using `POST /api/appointments`.
 
 ## Notes
