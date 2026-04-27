@@ -18,16 +18,22 @@ export class AppointmentsService {
   ) {}
 
   async create(patientUserId: string, dto: CreateAppointmentDto) {
-    const { doctor, selectedSlot } = await this.doctorsService.validateSlotForBooking(
-      dto.doctorId,
-      dto.appointmentDate,
-      dto.slotStartTime,
-    );
+    const { doctor, selectedSlot } =
+      await this.doctorsService.validateSlotForBooking(
+        dto.doctorId,
+        dto.appointmentDate,
+        dto.slotStartTime,
+      );
     const patientUser = await this.usersService.findById(patientUserId);
 
     if (!patientUser) {
       throw new NotFoundException('Patient user not found');
     }
+
+    const tokenNumber = await this.getNextTokenNumber(
+      doctor.id,
+      dto.appointmentDate,
+    );
 
     const appointment = this.appointmentRepository.create({
       doctor,
@@ -38,6 +44,7 @@ export class AppointmentsService {
       appointmentDate: dto.appointmentDate,
       slotStartTime: selectedSlot.startTime,
       slotEndTime: selectedSlot.endTime,
+      tokenNumber,
       status: 'BOOKED',
     });
 
@@ -61,7 +68,11 @@ export class AppointmentsService {
     return this.toAppointmentResponse(appointment);
   }
 
-  async findAll(patientUserId: string, doctorId?: string, appointmentDate?: string) {
+  async findAll(
+    patientUserId: string,
+    doctorId?: string,
+    appointmentDate?: string,
+  ) {
     const appointments = await this.appointmentRepository.find({
       where: {
         patientUser: { id: patientUserId },
@@ -74,7 +85,9 @@ export class AppointmentsService {
       },
     });
 
-    return appointments.map((appointment) => this.toAppointmentResponse(appointment));
+    return appointments.map((appointment) =>
+      this.toAppointmentResponse(appointment),
+    );
   }
 
   private toAppointmentResponse(appointment: Appointment) {
@@ -89,9 +102,22 @@ export class AppointmentsService {
       appointmentDate: appointment.appointmentDate,
       slotStartTime: appointment.slotStartTime,
       slotEndTime: appointment.slotEndTime,
+      tokenNumber: appointment.tokenNumber,
       status: appointment.status,
       createdAt: appointment.createdAt,
       updatedAt: appointment.updatedAt,
     };
+  }
+
+  private async getNextTokenNumber(doctorId: string, appointmentDate: string) {
+    const bookedAppointmentsCount = await this.appointmentRepository.count({
+      where: {
+        doctor: { id: doctorId },
+        appointmentDate,
+        status: 'BOOKED',
+      },
+    });
+
+    return bookedAppointmentsCount + 1;
   }
 }

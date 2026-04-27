@@ -356,7 +356,9 @@ Sample success response:
 }
 ```
 
-If the selected slot is no longer available:
+If the selected slot is no longer available, no appointment is created yet. The
+patient should confirm the returned next slot with a second booking request; that
+confirmed booking response will contain the appointment id and token number.
 
 ```json
 {
@@ -440,8 +442,8 @@ Sample response:
 
 ## Booking Flow
 
-1. Create doctor configuration.
-2. Call `GET /api/doctors/:doctorId/availability`.
+1. Cn.
+2. Callreate doctor configuratio `GET /api/doctors/:doctorId/availability`.
 3. If today has slots, book one of the returned slots.
 4. If today is full, use `nextAvailableDate` and `nextAvailableSlot`.
 5. Submit the selected slot using `POST /api/appointments`.

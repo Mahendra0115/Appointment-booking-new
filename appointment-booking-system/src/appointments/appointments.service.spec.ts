@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -16,8 +16,11 @@ describe('AppointmentsService', () => {
     save: jest.Mock;
     find: jest.Mock;
     findOne: jest.Mock;
+    count: jest.Mock;
   };
-  let doctorsService: { validateSlotForBooking: jest.Mock };
+  let doctorsService: {
+    validateSlotForBooking: jest.Mock;
+  };
   let usersService: { findById: jest.Mock };
 
   const doctor = {
@@ -38,6 +41,7 @@ describe('AppointmentsService', () => {
     appointmentDate: '2099-04-20',
     slotStartTime: '09:00',
     slotEndTime: '09:30',
+    tokenNumber: 1,
     status: 'BOOKED',
     createdAt: new Date('2099-01-01T00:00:00.000Z'),
     updatedAt: new Date('2099-01-01T00:00:00.000Z'),
@@ -46,9 +50,12 @@ describe('AppointmentsService', () => {
   beforeEach(async () => {
     appointmentRepository = {
       create: jest.fn((data) => data),
-      save: jest.fn((data) => Promise.resolve({ id: 'appointment-id', ...data })),
+      save: jest.fn((data) =>
+        Promise.resolve({ id: 'appointment-id', ...data }),
+      ),
       find: jest.fn(),
       findOne: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     };
     doctorsService = {
       validateSlotForBooking: jest.fn().mockResolvedValue({
@@ -115,8 +122,37 @@ describe('AppointmentsService', () => {
       appointmentDate: '2099-04-20',
       slotStartTime: '09:00',
       slotEndTime: '09:30',
+      tokenNumber: 1,
       status: 'BOOKED',
     });
+  });
+
+  it('should return next available slot details without booking when requested slot is unavailable', async () => {
+    doctorsService.validateSlotForBooking.mockRejectedValue(
+      new BadRequestException({
+        message: 'Selected slot is not available on 2099-04-20.',
+        nextAvailableDate: '2099-04-21',
+        nextAvailableSlot: { startTime: '09:00', endTime: '09:30' },
+      }),
+    );
+
+    await expect(
+      service.create('patient-user-id', {
+        doctorId: 'doctor-id',
+        patientPhoneNumber: '9876543210',
+        appointmentDate: '2099-04-20',
+        slotStartTime: '09:00',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Selected slot is not available on 2099-04-20.',
+        nextAvailableDate: '2099-04-21',
+        nextAvailableSlot: { startTime: '09:00', endTime: '09:30' },
+      },
+    });
+    expect(appointmentRepository.create).not.toHaveBeenCalled();
+    expect(appointmentRepository.save).not.toHaveBeenCalled();
+    expect(appointmentRepository.count).not.toHaveBeenCalled();
   });
 
   it('should throw when patient user is not found', async () => {
