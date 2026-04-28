@@ -244,10 +244,12 @@ export class DoctorsService {
         doctor,
         appointmentDate,
         doctor.nextAvailableSearchDays,
+        slotStartTime,
       );
 
       throw new BadRequestException({
-        message: `Selected slot is not available on ${appointmentDate}.`,
+        message: 'This slot is already booked.',
+        nextavailableDays: nextAvailable?.day ?? null,
         nextAvailableDate: nextAvailable?.date ?? null,
         nextAvailableSlot: nextAvailable?.slot ?? null,
       });
@@ -256,21 +258,57 @@ export class DoctorsService {
     return { doctor, selectedSlot, schedule };
   }
 
+  async findNextAvailableSlotForBooking(
+    doctorId: string,
+    appointmentDate: string,
+    slotStartTime?: string,
+  ) {
+    const doctor = await this.findDoctorEntityOrFail(doctorId);
+    const nextAvailable = await this.findNextAvailableDay(
+      doctor,
+      appointmentDate,
+      doctor.nextAvailableSearchDays,
+      slotStartTime,
+    );
+
+    if (!nextAvailable) {
+      return null;
+    }
+
+    return {
+      doctor,
+      appointmentDate: nextAvailable.date,
+      selectedSlot: nextAvailable.slot,
+      nextavailableDays: nextAvailable.day,
+      schedule: nextAvailable.schedule,
+    };
+  }
+
   private async findNextAvailableDay(
     doctor: Doctor,
     startDate: string,
     daysToSearch: number,
+    afterStartTime?: string,
   ) {
-    for (let offset = 1; offset <= daysToSearch; offset += 1) {
+    for (let offset = 0; offset <= daysToSearch; offset += 1) {
       const nextDate = this.addDays(startDate, offset);
       const schedule = await this.buildDailySchedule(doctor, nextDate);
+      const slots =
+        offset === 0 && afterStartTime
+          ? schedule.slots.filter(
+              (slot) =>
+                this.timeToMinutes(this.normalizeTime(slot.startTime)) >
+                this.timeToMinutes(this.normalizeTime(afterStartTime)),
+            )
+          : schedule.slots;
 
-      if (schedule.availableSlots > 0) {
-        const [firstAvailableSlot] = schedule.slots;
+      if (slots.length > 0) {
+        const [firstAvailableSlot] = slots;
 
         return {
           date: nextDate,
           offset,
+          day: this.getDisplayDayOfWeek(nextDate),
           slot: firstAvailableSlot,
           schedule: {
             ...schedule,
@@ -435,6 +473,11 @@ export class DoctorsService {
     ];
 
     return days[dayIndex];
+  }
+
+  private getDisplayDayOfWeek(date: string) {
+    const day = this.getDayOfWeekFromDate(date).toLowerCase();
+    return day.charAt(0).toUpperCase() + day.slice(1);
   }
 
   private addDays(date: string, days: number) {

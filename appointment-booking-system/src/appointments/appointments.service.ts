@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -18,31 +22,49 @@ export class AppointmentsService {
   ) {}
 
   async create(patientUserId: string, dto: CreateAppointmentDto) {
+<<<<<<< Updated upstream
     const { doctor, selectedSlot } = await this.doctorsService.validateSlotForBooking(
       dto.doctorId,
       dto.appointmentDate,
       dto.slotStartTime,
     );
+=======
+    const slotSelection = await this.validateSlotSelection(dto);
+>>>>>>> Stashed changes
     const patientUser = await this.usersService.findById(patientUserId);
 
     if (!patientUser) {
       throw new NotFoundException('Patient user not found');
     }
 
+<<<<<<< Updated upstream
+=======
+    const tokenNumber = await this.getNextTokenNumber(
+      slotSelection.doctor.id,
+      slotSelection.appointmentDate,
+    );
+
+>>>>>>> Stashed changes
     const appointment = this.appointmentRepository.create({
-      doctor,
+      doctor: slotSelection.doctor,
       patientUser,
       patientPhoneNumber: dto.patientPhoneNumber,
       patientName: dto.patientName ?? null,
       reasonForVisit: dto.reasonForVisit ?? null,
+<<<<<<< Updated upstream
       appointmentDate: dto.appointmentDate,
       slotStartTime: selectedSlot.startTime,
       slotEndTime: selectedSlot.endTime,
+=======
+      appointmentDate: slotSelection.appointmentDate,
+      slotStartTime: slotSelection.selectedSlot.startTime,
+      slotEndTime: slotSelection.selectedSlot.endTime,
+      tokenNumber,
+>>>>>>> Stashed changes
       status: 'BOOKED',
     });
 
     const savedAppointment = await this.appointmentRepository.save(appointment);
-
     return this.toAppointmentResponse(savedAppointment);
   }
 
@@ -89,9 +111,74 @@ export class AppointmentsService {
       appointmentDate: appointment.appointmentDate,
       slotStartTime: appointment.slotStartTime,
       slotEndTime: appointment.slotEndTime,
+<<<<<<< Updated upstream
+=======
+      tokenNumber: appointment.tokenNumber,
+      reportingTime: appointment.slotStartTime,
+>>>>>>> Stashed changes
       status: appointment.status,
       createdAt: appointment.createdAt,
       updatedAt: appointment.updatedAt,
     };
   }
+<<<<<<< Updated upstream
+=======
+
+  private async validateSlotSelection(dto: CreateAppointmentDto) {
+    try {
+      const { doctor, selectedSlot } =
+        await this.doctorsService.validateSlotForBooking(
+          dto.doctorId,
+          dto.appointmentDate,
+          dto.slotStartTime,
+        );
+
+      return {
+        doctor,
+        appointmentDate: dto.appointmentDate,
+        selectedSlot,
+      };
+    } catch (error) {
+      if (!(error instanceof BadRequestException)) {
+        throw error;
+      }
+
+      const nextSlot =
+        await this.doctorsService.findNextAvailableSlotForBooking(
+          dto.doctorId,
+          dto.appointmentDate,
+          dto.slotStartTime,
+        );
+
+      if (!nextSlot) {
+        throw error;
+      }
+
+      const tokenNo = await this.getNextTokenNumber(
+        nextSlot.doctor.id,
+        nextSlot.appointmentDate,
+      );
+
+      throw new BadRequestException({
+        message: 'This slot is already booked.',
+        nextavailableDays: nextSlot.nextavailableDays,
+        nextAvailableDate: nextSlot.appointmentDate,
+        nextAvailableSlot: nextSlot.selectedSlot,
+        tokenNo,
+      });
+    }
+  }
+
+  private async getNextTokenNumber(doctorId: string, appointmentDate: string) {
+    const bookedAppointmentsCount = await this.appointmentRepository.count({
+      where: {
+        doctor: { id: doctorId },
+        appointmentDate,
+        status: 'BOOKED',
+      },
+    });
+
+    return bookedAppointmentsCount + 1;
+  }
+>>>>>>> Stashed changes
 }

@@ -356,20 +356,28 @@ Sample success response:
 }
 ```
 
+<<<<<<< Updated upstream
 If the selected slot is no longer available:
+=======
+If the selected slot is already booked, no new appointment is created. The
+system first suggests the next free slot on the same day. If the same day has no
+free slot, it suggests the next available slot based on the doctor's working
+days.
+>>>>>>> Stashed changes
 
 ```json
 {
   "statusCode": 400,
   "message": {
-    "message": "Selected slot is not available on 2026-04-22.",
-    "nextAvailableDate": "2026-04-23",
+    "message": "This slot is already booked.",
+    "nextavailableDays": "Thursday",
+    "nextAvailableDate": "2026-04-30",
     "nextAvailableSlot": {
-      "startTime": "09:00",
-      "endTime": "09:15"
-    }
-  },
-  "error": "Bad Request"
+      "startTime": "09:30",
+      "endTime": "09:45"
+    },
+    "tokenNo": 12
+  }
 }
 ```
 
