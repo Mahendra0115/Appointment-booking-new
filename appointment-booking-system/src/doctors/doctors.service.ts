@@ -39,7 +39,9 @@ export class DoctorsService {
     }
 
     if (user.role !== Role.DOCTOR) {
-      throw new BadRequestException('Only doctor users can create doctor profiles');
+      throw new BadRequestException(
+        'Only doctor users can create doctor profiles',
+      );
     }
 
     const existingDoctor = await this.doctorRepository.findOne({
@@ -47,7 +49,9 @@ export class DoctorsService {
     });
 
     if (existingDoctor) {
-      throw new ConflictException('Doctor profile already exists for this account');
+      throw new ConflictException(
+        'Doctor profile already exists for this account',
+      );
     }
 
     this.validateDoctorConfig(dto);
@@ -89,7 +93,9 @@ export class DoctorsService {
     const nextDoctor = this.doctorRepository.merge(doctor, {
       ...dto,
       specialization:
-        dto.specialization === undefined ? doctor.specialization : dto.specialization,
+        dto.specialization === undefined
+          ? doctor.specialization
+          : dto.specialization,
       availableDays: dto.availableDays
         ? this.uniqueDays(dto.availableDays)
         : doctor.availableDays,
@@ -214,8 +220,10 @@ export class DoctorsService {
           isBooked,
         };
       })
-      .filter((slot) => !slot.isBooked && this.isSlotBookable(date, slot.startTime))
-      .map(({ isBooked: _isBooked, ...slot }) => slot);
+      .filter(
+        (slot) => !slot.isBooked && this.isSlotBookable(date, slot.startTime),
+      )
+      .map(({ startTime, endTime }) => ({ startTime, endTime }));
 
     return {
       date,
@@ -236,7 +244,8 @@ export class DoctorsService {
     const schedule = await this.buildDailySchedule(doctor, appointmentDate);
     const normalizedRequestedStartTime = this.normalizeTime(slotStartTime);
     const selectedSlot = schedule.slots.find(
-      (slot) => this.normalizeTime(slot.startTime) === normalizedRequestedStartTime,
+      (slot) =>
+        this.normalizeTime(slot.startTime) === normalizedRequestedStartTime,
     );
 
     if (!selectedSlot) {

@@ -356,14 +356,10 @@ Sample success response:
 }
 ```
 
-<<<<<<< Updated upstream
-If the selected slot is no longer available:
-=======
 If the selected slot is already booked, no new appointment is created. The
 system first suggests the next free slot on the same day. If the same day has no
 free slot, it suggests the next available slot based on the doctor's working
 days.
->>>>>>> Stashed changes
 
 ```json
 {

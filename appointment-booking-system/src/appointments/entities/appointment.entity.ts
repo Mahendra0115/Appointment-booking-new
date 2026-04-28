@@ -43,6 +43,9 @@ export class Appointment extends BaseEntity {
   @Column({ name: 'slot_end_time', type: 'time' })
   slotEndTime: string;
 
+  @Column({ name: 'token_number', type: 'int', nullable: true })
+  tokenNumber?: number | null;
+
   @Column({ length: 30, default: 'BOOKED' })
   status: string;
 }

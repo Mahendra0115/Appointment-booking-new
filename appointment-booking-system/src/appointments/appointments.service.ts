@@ -22,45 +22,28 @@ export class AppointmentsService {
   ) {}
 
   async create(patientUserId: string, dto: CreateAppointmentDto) {
-<<<<<<< Updated upstream
-    const { doctor, selectedSlot } = await this.doctorsService.validateSlotForBooking(
-      dto.doctorId,
-      dto.appointmentDate,
-      dto.slotStartTime,
-    );
-=======
     const slotSelection = await this.validateSlotSelection(dto);
->>>>>>> Stashed changes
     const patientUser = await this.usersService.findById(patientUserId);
 
     if (!patientUser) {
       throw new NotFoundException('Patient user not found');
     }
 
-<<<<<<< Updated upstream
-=======
     const tokenNumber = await this.getNextTokenNumber(
       slotSelection.doctor.id,
       slotSelection.appointmentDate,
     );
 
->>>>>>> Stashed changes
     const appointment = this.appointmentRepository.create({
       doctor: slotSelection.doctor,
       patientUser,
       patientPhoneNumber: dto.patientPhoneNumber,
       patientName: dto.patientName ?? null,
       reasonForVisit: dto.reasonForVisit ?? null,
-<<<<<<< Updated upstream
-      appointmentDate: dto.appointmentDate,
-      slotStartTime: selectedSlot.startTime,
-      slotEndTime: selectedSlot.endTime,
-=======
       appointmentDate: slotSelection.appointmentDate,
       slotStartTime: slotSelection.selectedSlot.startTime,
       slotEndTime: slotSelection.selectedSlot.endTime,
       tokenNumber,
->>>>>>> Stashed changes
       status: 'BOOKED',
     });
 
@@ -83,7 +66,11 @@ export class AppointmentsService {
     return this.toAppointmentResponse(appointment);
   }
 
-  async findAll(patientUserId: string, doctorId?: string, appointmentDate?: string) {
+  async findAll(
+    patientUserId: string,
+    doctorId?: string,
+    appointmentDate?: string,
+  ) {
     const appointments = await this.appointmentRepository.find({
       where: {
         patientUser: { id: patientUserId },
@@ -96,7 +83,9 @@ export class AppointmentsService {
       },
     });
 
-    return appointments.map((appointment) => this.toAppointmentResponse(appointment));
+    return appointments.map((appointment) =>
+      this.toAppointmentResponse(appointment),
+    );
   }
 
   private toAppointmentResponse(appointment: Appointment) {
@@ -111,18 +100,13 @@ export class AppointmentsService {
       appointmentDate: appointment.appointmentDate,
       slotStartTime: appointment.slotStartTime,
       slotEndTime: appointment.slotEndTime,
-<<<<<<< Updated upstream
-=======
       tokenNumber: appointment.tokenNumber,
       reportingTime: appointment.slotStartTime,
->>>>>>> Stashed changes
       status: appointment.status,
       createdAt: appointment.createdAt,
       updatedAt: appointment.updatedAt,
     };
   }
-<<<<<<< Updated upstream
-=======
 
   private async validateSlotSelection(dto: CreateAppointmentDto) {
     try {
@@ -180,5 +164,4 @@ export class AppointmentsService {
 
     return bookedAppointmentsCount + 1;
   }
->>>>>>> Stashed changes
 }
