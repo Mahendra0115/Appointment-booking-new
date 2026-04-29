@@ -5,11 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 
 import { DayOfWeek } from '../availability/enums/day-of-week.enum';
 import { Appointment } from '../appointments/entities/appointment.entity';
+import { ClinicClosure } from '../clinic-closures/entities/clinic-closure.entity';
 import { Role } from '../common/enums/role.enum';
+import { DoctorLeave } from '../doctor-leaves/entities/doctor-leave.entity';
 import { UsersService } from '../users/users.service';
 
 import { CreateDoctorDto } from './dto/create-doctor.dto';
@@ -21,6 +23,12 @@ type Slot = {
   endTime: string;
 };
 
+type AvailabilityBlock = {
+  isFullDay: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+};
+
 @Injectable()
 export class DoctorsService {
   constructor(
@@ -28,6 +36,10 @@ export class DoctorsService {
     private readonly doctorRepository: Repository<Doctor>,
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
+    @InjectRepository(DoctorLeave)
+    private readonly doctorLeaveRepository: Repository<DoctorLeave>,
+    @InjectRepository(ClinicClosure)
+    private readonly clinicClosureRepository: Repository<ClinicClosure>,
     private readonly usersService: UsersService,
   ) {}
 
@@ -165,7 +177,7 @@ export class DoctorsService {
         nextAvailableDate: null,
         nextAvailableSlot: null,
         searchedDays: searchWindow,
-        message: `No appointments available in the next ${searchWindow} days. Please contact clinic.`,
+        message: `${todaySchedule.message ?? 'No appointments available on selected date.'} No appointments available in the next ${searchWindow} days. Please contact clinic.`,
         schedule: todaySchedule,
       };
     }
@@ -176,15 +188,81 @@ export class DoctorsService {
       nextAvailableDate: nextAvailable.date,
       nextAvailableSlot: nextAvailable.slot,
       searchedDays: nextAvailable.offset + 1,
-      message: isToday
-        ? `No appointments available today. Next available appointment is on ${nextAvailable.date} at ${nextAvailable.slot.startTime}.`
-        : `No appointments available on ${startDate}. Next available appointment is on ${nextAvailable.date} at ${nextAvailable.slot.startTime}.`,
+      message: this.buildNextAvailableMessage(
+        todaySchedule.unavailableReason,
+        startDate,
+        nextAvailable.date,
+        nextAvailable.slot.startTime,
+        isToday,
+      ),
       schedule: nextAvailable.schedule,
     };
   }
 
+  async getNextAvailable(
+    doctorId: string,
+    fromDate?: string,
+    daysToSearch?: number,
+  ) {
+    const availability = await this.getAvailability(
+      doctorId,
+      fromDate,
+      daysToSearch,
+    );
+
+    return {
+      doctor: availability.doctor,
+      fromDate: availability.requestedDate,
+      nextAvailableDate: availability.nextAvailableDate,
+      nextAvailableSlot: availability.nextAvailableSlot,
+      searchedDays: availability.searchedDays,
+      message: availability.message,
+    };
+  }
+
+  async getSlots(doctorId: string, requestedDate?: string) {
+    const doctor = await this.findDoctorEntityOrFail(doctorId);
+    const date = requestedDate ?? this.getTodayDateString();
+    const schedule = await this.buildDailySchedule(doctor, date);
+
+    return {
+      doctor: this.toDoctorResponse(doctor),
+      ...schedule,
+    };
+  }
+
   async buildDailySchedule(doctor: Doctor, date: string) {
+    const clinicClosures = await this.findClinicClosuresForDate(date);
+
+    if (this.hasFullDayBlock(clinicClosures)) {
+      return {
+        date,
+        isWorkingDay: false,
+        totalSlots: 0,
+        bookedSlots: 0,
+        availableSlots: 0,
+        unavailableReason: 'CLINIC_CLOSED',
+        message: 'Clinic is closed on selected date.',
+        slots: [],
+      };
+    }
+
     const isWorkingDay = this.isDoctorWorkingOnDate(doctor, date);
+    const doctorLeaves = await this.findDoctorLeavesForDate(doctor.id, date);
+
+    if (this.hasFullDayBlock(doctorLeaves)) {
+      return {
+        date,
+        isWorkingDay,
+        totalSlots: 0,
+        bookedSlots: 0,
+        availableSlots: 0,
+        unavailableReason: 'DOCTOR_ON_LEAVE',
+        message: 'Doctor is unavailable on selected date.',
+        slots: [],
+      };
+    }
+
     const generatedSlots = isWorkingDay ? this.generateSlots(doctor) : [];
 
     if (generatedSlots.length === 0) {
@@ -194,6 +272,8 @@ export class DoctorsService {
         totalSlots: 0,
         bookedSlots: 0,
         availableSlots: 0,
+        unavailableReason: 'DOCTOR_NOT_WORKING',
+        message: 'Doctor is not available on selected date.',
         slots: [],
       };
     }
@@ -223,7 +303,17 @@ export class DoctorsService {
       .filter(
         (slot) => !slot.isBooked && this.isSlotBookable(date, slot.startTime),
       )
+      .filter((slot) => !this.isBlockedByAny(slot, clinicClosures))
+      .filter((slot) => !this.isBlockedByAny(slot, doctorLeaves))
       .map(({ startTime, endTime }) => ({ startTime, endTime }));
+
+    const isToday = date === this.getTodayDateString();
+    const unavailableReason =
+      availableSlotRows.length === 0 && isToday
+        ? 'CONSULTING_TIME_OVER_OR_SLOTS_FULL'
+        : availableSlotRows.length === 0
+          ? 'SLOTS_FULL'
+          : null;
 
     return {
       date,
@@ -231,6 +321,11 @@ export class DoctorsService {
       totalSlots: generatedSlots.length,
       bookedSlots: appointments.length,
       availableSlots: availableSlotRows.length,
+      unavailableReason,
+      message:
+        availableSlotRows.length === 0
+          ? this.getUnavailableMessage(unavailableReason)
+          : null,
       slots: availableSlotRows,
     };
   }
@@ -257,7 +352,8 @@ export class DoctorsService {
       );
 
       throw new BadRequestException({
-        message: 'This slot is already booked.',
+        message: schedule.message ?? 'This slot is already booked.',
+        reason: schedule.unavailableReason ?? 'SLOT_NOT_AVAILABLE',
         nextavailableDays: nextAvailable?.day ?? null,
         nextAvailableDate: nextAvailable?.date ?? null,
         nextAvailableSlot: nextAvailable?.slot ?? null,
@@ -329,6 +425,86 @@ export class DoctorsService {
     }
 
     return null;
+  }
+
+  private async findDoctorLeavesForDate(doctorId: string, date: string) {
+    return this.doctorLeaveRepository.find({
+      where: {
+        doctor: { id: doctorId },
+        startDate: LessThanOrEqual(date),
+        endDate: MoreThanOrEqual(date),
+      },
+    });
+  }
+
+  private async findClinicClosuresForDate(date: string) {
+    return this.clinicClosureRepository.find({
+      where: {
+        startDate: LessThanOrEqual(date),
+        endDate: MoreThanOrEqual(date),
+      },
+    });
+  }
+
+  private hasFullDayBlock(blocks: AvailabilityBlock[]) {
+    return blocks.some((block) => block.isFullDay);
+  }
+
+  private isBlockedByAny(slot: Slot, blocks: AvailabilityBlock[]) {
+    return blocks.some((block) => this.isBlockedByPartialWindow(slot, block));
+  }
+
+  private isBlockedByPartialWindow(slot: Slot, block: AvailabilityBlock) {
+    if (block.isFullDay || !block.startTime || !block.endTime) {
+      return false;
+    }
+
+    return (
+      this.normalizeTime(slot.startTime) < this.normalizeTime(block.endTime) &&
+      this.normalizeTime(slot.endTime) > this.normalizeTime(block.startTime)
+    );
+  }
+
+  private getUnavailableMessage(reason: string | null) {
+    if (reason === 'CONSULTING_TIME_OVER_OR_SLOTS_FULL') {
+      return 'Consultation hours are over or appointments are fully booked.';
+    }
+
+    if (reason === 'SLOTS_FULL') {
+      return 'Appointments are fully booked on selected date.';
+    }
+
+    return 'Appointments are not available on selected date.';
+  }
+
+  private buildNextAvailableMessage(
+    reason: string | null,
+    requestedDate: string,
+    nextDate: string,
+    nextTime: string,
+    isToday: boolean,
+  ) {
+    const nextSlotText = `Next available slot is on ${nextDate} at ${nextTime}.`;
+
+    if (reason === 'CLINIC_CLOSED') {
+      return `Clinic is closed on selected date. ${nextSlotText}`;
+    }
+
+    if (reason === 'DOCTOR_ON_LEAVE' || reason === 'DOCTOR_NOT_WORKING') {
+      return `Doctor is unavailable on selected date. ${nextSlotText}`;
+    }
+
+    if (reason === 'CONSULTING_TIME_OVER_OR_SLOTS_FULL') {
+      return `Consultation hours are over or today's appointments are fully booked. ${nextSlotText}`;
+    }
+
+    if (reason === 'SLOTS_FULL') {
+      return `Appointments are fully booked on ${requestedDate}. ${nextSlotText}`;
+    }
+
+    return isToday
+      ? `No appointments available today. ${nextSlotText}`
+      : `No appointments available on ${requestedDate}. ${nextSlotText}`;
   }
 
   private generateSlots(doctor: Doctor): Slot[] {

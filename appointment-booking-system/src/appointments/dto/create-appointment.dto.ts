@@ -26,9 +26,12 @@ export class CreateAppointmentDto {
   @IsString()
   reasonForVisit?: string;
 
+  @IsOptional()
   @IsDateString()
-  appointmentDate: string;
+  appointmentDate?: string;
 
+  @IsString()
+  @IsNotEmpty()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
     message: 'slotStartTime must be in HH:mm format',
   })

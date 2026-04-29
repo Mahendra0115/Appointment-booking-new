@@ -172,6 +172,26 @@ describe('AppointmentsService', () => {
     expect(appointmentRepository.save).not.toHaveBeenCalled();
   });
 
+  it('should require patient to select a slot before booking', async () => {
+    await expect(
+      service.create('patient-user-id', {
+        doctorId: 'doctor-id',
+        patientPhoneNumber: '9876543210',
+      } as any),
+    ).rejects.toMatchObject({
+      response: {
+        message:
+          'slotStartTime is required. Please select an available slot before booking.',
+        reason: 'SLOT_REQUIRED',
+      },
+    });
+
+    expect(doctorsService.validateSlotForBooking).not.toHaveBeenCalled();
+    expect(doctorsService.findNextAvailableSlotForBooking).not.toHaveBeenCalled();
+    expect(appointmentRepository.create).not.toHaveBeenCalled();
+    expect(appointmentRepository.save).not.toHaveBeenCalled();
+  });
+
   it('should throw when patient user is not found', async () => {
     usersService.findById.mockResolvedValue(null);
 

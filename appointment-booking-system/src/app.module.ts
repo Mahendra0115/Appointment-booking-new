@@ -13,6 +13,8 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { DoctorsModule } from './doctors/doctors.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { DoctorLeavesModule } from './doctor-leaves/doctor-leaves.module';
+import { ClinicClosuresModule } from './clinic-closures/clinic-closures.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { AppointmentsModule } from './appointments/appointments.module';
     AuthModule,
     DoctorsModule,
     AppointmentsModule,
+    DoctorLeavesModule,
+    ClinicClosuresModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

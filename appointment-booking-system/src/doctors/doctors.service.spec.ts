@@ -4,7 +4,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { DayOfWeek } from '../availability/enums/day-of-week.enum';
+import { ClinicClosure } from '../clinic-closures/entities/clinic-closure.entity';
 import { Role } from '../common/enums/role.enum';
+import { DoctorLeave } from '../doctor-leaves/entities/doctor-leave.entity';
 import { UsersService } from '../users/users.service';
 
 import { Doctor } from './entities/doctor.entity';
@@ -14,6 +16,8 @@ describe('DoctorsService', () => {
   let service: DoctorsService;
   let doctorRepository: { findOne: jest.Mock };
   let appointmentRepository: { find: jest.Mock };
+  let doctorLeaveRepository: { find: jest.Mock };
+  let clinicClosureRepository: { find: jest.Mock };
 
   const doctor = {
     id: 'doctor-id',
@@ -54,6 +58,12 @@ describe('DoctorsService', () => {
     appointmentRepository = {
       find: jest.fn(),
     };
+    doctorLeaveRepository = {
+      find: jest.fn().mockResolvedValue([]),
+    };
+    clinicClosureRepository = {
+      find: jest.fn().mockResolvedValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -65,6 +75,14 @@ describe('DoctorsService', () => {
         {
           provide: getRepositoryToken(Appointment),
           useValue: appointmentRepository,
+        },
+        {
+          provide: getRepositoryToken(DoctorLeave),
+          useValue: doctorLeaveRepository,
+        },
+        {
+          provide: getRepositoryToken(ClinicClosure),
+          useValue: clinicClosureRepository,
         },
         {
           provide: UsersService,
@@ -91,6 +109,39 @@ describe('DoctorsService', () => {
       { startTime: '09:00', endTime: '09:30' },
       { startTime: '09:30', endTime: '10:00' },
     ]);
+  });
+
+  it('should expose next available appointment details', async () => {
+    appointmentRepository.find.mockResolvedValue([]);
+
+    const result = await service.getNextAvailable('doctor-id', '2099-04-20', 7);
+
+    expect(result).toMatchObject({
+      fromDate: '2099-04-20',
+      nextAvailableDate: '2099-04-20',
+      nextAvailableSlot: {
+        startTime: '09:00',
+        endTime: '09:30',
+      },
+      searchedDays: 1,
+    });
+    expect(result).not.toHaveProperty('schedule');
+  });
+
+  it('should return available slots for a selected date', async () => {
+    appointmentRepository.find.mockResolvedValue([
+      bookedAppointment('09:00'),
+    ]);
+
+    const result = await service.getSlots('doctor-id', '2099-04-20');
+
+    expect(result).toMatchObject({
+      date: '2099-04-20',
+      totalSlots: 2,
+      bookedSlots: 1,
+      availableSlots: 1,
+      slots: [{ startTime: '09:30', endTime: '10:00' }],
+    });
   });
 
   it('should suggest only first slot from next available working day', async () => {
@@ -131,7 +182,7 @@ describe('DoctorsService', () => {
     expect(result.nextAvailableSlot).toBeNull();
     expect(result.searchedDays).toBe(2);
     expect(result.message).toBe(
-      'No appointments available in the next 2 days. Please contact clinic.',
+      'Appointments are fully booked on selected date. No appointments available in the next 2 days. Please contact clinic.',
     );
     expect(result.schedule.availableSlots).toBe(0);
   });
@@ -162,5 +213,45 @@ describe('DoctorsService', () => {
         },
       },
     });
+  });
+
+  it('should skip dates when doctor is on full-day leave', async () => {
+    doctorLeaveRepository.find.mockImplementation(({ where }) => {
+      if (where.startDate._value === '2099-04-20') {
+        return Promise.resolve([{ isFullDay: true }]);
+      }
+
+      return Promise.resolve([]);
+    });
+    appointmentRepository.find.mockResolvedValue([]);
+
+    const result = await service.getAvailability('doctor-id', '2099-04-20', 7);
+
+    expect(result.nextAvailableDate).toBe('2099-04-21');
+    expect(result.nextAvailableSlot).toEqual({
+      startTime: '09:00',
+      endTime: '09:30',
+    });
+    expect(result.schedule.availableSlots).toBe(1);
+  });
+
+  it('should skip dates when clinic is closed full day', async () => {
+    clinicClosureRepository.find.mockImplementation(({ where }) => {
+      if (where.startDate._value === '2099-04-20') {
+        return Promise.resolve([{ isFullDay: true }]);
+      }
+
+      return Promise.resolve([]);
+    });
+    appointmentRepository.find.mockResolvedValue([]);
+
+    const result = await service.getAvailability('doctor-id', '2099-04-20', 7);
+
+    expect(result.nextAvailableDate).toBe('2099-04-21');
+    expect(result.nextAvailableSlot).toEqual({
+      startTime: '09:00',
+      endTime: '09:30',
+    });
+    expect(result.schedule.availableSlots).toBe(1);
   });
 });

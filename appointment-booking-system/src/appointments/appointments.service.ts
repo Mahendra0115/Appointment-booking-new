@@ -22,7 +22,18 @@ export class AppointmentsService {
   ) {}
 
   async create(patientUserId: string, dto: CreateAppointmentDto) {
-    const slotSelection = await this.validateSlotSelection(dto);
+    if (!dto.slotStartTime) {
+      throw new BadRequestException({
+        message: 'slotStartTime is required. Please select an available slot before booking.',
+        reason: 'SLOT_REQUIRED',
+      });
+    }
+
+    const appointmentDate = dto.appointmentDate ?? this.getTodayDateString();
+    const slotSelection = await this.validateSlotSelection({
+      ...dto,
+      appointmentDate,
+    });
     const patientUser = await this.usersService.findById(patientUserId);
 
     if (!patientUser) {
@@ -108,7 +119,9 @@ export class AppointmentsService {
     };
   }
 
-  private async validateSlotSelection(dto: CreateAppointmentDto) {
+  private async validateSlotSelection(
+    dto: CreateAppointmentDto & { appointmentDate: string },
+  ) {
     try {
       const { doctor, selectedSlot } =
         await this.doctorsService.validateSlotForBooking(
@@ -127,6 +140,20 @@ export class AppointmentsService {
         throw error;
       }
 
+      const errorResponse = error.getResponse();
+      const message =
+        typeof errorResponse === 'object' &&
+        errorResponse !== null &&
+        'message' in errorResponse
+          ? errorResponse.message
+          : 'This slot is already booked.';
+      const reason =
+        typeof errorResponse === 'object' &&
+        errorResponse !== null &&
+        'reason' in errorResponse
+          ? errorResponse.reason
+          : 'SLOT_NOT_AVAILABLE';
+
       const nextSlot =
         await this.doctorsService.findNextAvailableSlotForBooking(
           dto.doctorId,
@@ -144,7 +171,8 @@ export class AppointmentsService {
       );
 
       throw new BadRequestException({
-        message: 'This slot is already booked.',
+        message,
+        reason,
         nextavailableDays: nextSlot.nextavailableDays,
         nextAvailableDate: nextSlot.appointmentDate,
         nextAvailableSlot: nextSlot.selectedSlot,
@@ -163,5 +191,14 @@ export class AppointmentsService {
     });
 
     return bookedAppointmentsCount + 1;
+  }
+
+  private getTodayDateString() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = `${today.getMonth() + 1}`.padStart(2, '0');
+    const day = `${today.getDate()}`.padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   }
 }
