@@ -1,0 +1,676 @@
+{
+  "info": {
+    "_postman_id": "8b4d3c2e-6f9a-4cb1-a90f-appointment-booking-auth",
+    "name": "Appointment Booking System",
+    "description": "Postman collection for doctor/patient JWT auth, doctor setup, leave and closure APIs, next available lookup, doctor slots, and appointment booking.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "doctorToken",
+      "value": ""
+    },
+    {
+      "key": "patientToken",
+      "value": ""
+    },
+    {
+      "key": "doctorId",
+      "value": ""
+    },
+    {
+      "key": "appointmentId",
+      "value": ""
+    },
+    {
+      "key": "nextAvailableFromDate",
+      "value": "2026-04-23"
+    },
+    {
+      "key": "slotCheckDate",
+      "value": "2026-04-23"
+    },
+    {
+      "key": "preferredAppointmentDate",
+      "value": "2026-04-23"
+    },
+    {
+      "key": "preferredSlotStartTime",
+      "value": "09:15"
+    },
+    {
+      "key": "daysToSearch",
+      "value": "7"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Doctor Signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Dr. Meera Sharma\",\n  \"email\": \"doctor@example.com\",\n  \"password\": \"doctor123\",\n  \"role\": \"DOCTOR\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/signup",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "signup"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Doctor Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.data && json.data.accessToken) {",
+              "  pm.collectionVariables.set('doctorToken', json.data.accessToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"doctor@example.com\",\n  \"password\": \"doctor123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Create Doctor Profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.data && json.data.id) {",
+              "  pm.collectionVariables.set('doctorId', json.data.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{doctorToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"doctorName\": \"Dr. Meera Sharma\",\n  \"specialization\": \"Cardiology\",\n  \"availableDays\": [\"MONDAY\", \"TUESDAY\", \"WEDNESDAY\", \"THURSDAY\", \"FRIDAY\", \"SATURDAY\"],\n  \"weeklyOffDays\": [\"SUNDAY\"],\n  \"consultingStartTime\": \"09:00\",\n  \"consultingEndTime\": \"17:00\",\n  \"slotDurationMinutes\": 15,\n  \"nextAvailableSearchDays\": 7\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/doctors",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctors"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Get My Doctor Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{doctorToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctors/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctors",
+            "me"
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Update My Doctor Profile",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{doctorToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"specialization\": \"Senior Cardiology Consultant\",\n  \"totalAppointmentsPerDay\": 20,\n  \"nextAvailableSearchDays\": 10\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/doctors/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctors",
+            "me"
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. NEW - Doctor Leave - Full Day",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{doctorToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2026-04-24\",\n  \"endDate\": \"2026-04-24\",\n  \"isFullDay\": true,\n  \"reason\": \"Doctor conference\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/doctor-leaves",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctor-leaves"
+          ]
+        }
+      }
+    },
+    {
+      "name": "8. NEW - Doctor Leave - Partial Day",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{doctorToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2026-04-25\",\n  \"endDate\": \"2026-04-25\",\n  \"isFullDay\": false,\n  \"startTime\": \"13:00\",\n  \"endTime\": \"15:00\",\n  \"reason\": \"Personal work\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/doctor-leaves",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctor-leaves"
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. NEW - Clinic Closure - Full Day",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{doctorToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2026-04-26\",\n  \"endDate\": \"2026-04-26\",\n  \"isFullDay\": true,\n  \"reason\": \"Clinic holiday\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/clinic-closures",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "clinic-closures"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. NEW - Clinic Closure - Partial Day",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{doctorToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2026-04-27\",\n  \"endDate\": \"2026-04-27\",\n  \"isFullDay\": false,\n  \"startTime\": \"12:00\",\n  \"endTime\": \"14:00\",\n  \"reason\": \"Emergency maintenance\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/clinic-closures",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "clinic-closures"
+          ]
+        }
+      }
+    },
+    {
+      "name": "11. Patient Signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Rahul Verma\",\n  \"email\": \"patient@example.com\",\n  \"password\": \"patient123\",\n  \"role\": \"PATIENT\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/signup",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "signup"
+          ]
+        }
+      }
+    },
+    {
+      "name": "12. Patient Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.data && json.data.accessToken) {",
+              "  pm.collectionVariables.set('patientToken', json.data.accessToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"patient@example.com\",\n  \"password\": \"patient123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      }
+    },
+    {
+      "name": "13. Get Next Available Day",
+      "description": "Checks the selected date and returns the next available appointment date and first available slot when the selected date is full, closed, leave day, non-working day, or consulting time is over.",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctor/{{doctorId}}/next-available?from={{nextAvailableFromDate}}&daysToSearch={{daysToSearch}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctor",
+            "{{doctorId}}",
+            "next-available"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "{{nextAvailableFromDate}}"
+            },
+            {
+              "key": "daysToSearch",
+              "value": "{{daysToSearch}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "14. Get Available Slots",
+      "description": "Returns available slots for one doctor on one date after removing booked slots, doctor leave, clinic closures, non-working days, and past slots for today.",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctor/{{doctorId}}/slots?date={{slotCheckDate}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctor",
+            "{{doctorId}}",
+            "slots"
+          ],
+          "query": [
+            {
+              "key": "date",
+              "value": "{{slotCheckDate}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "15. Get All Doctors",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctors",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctors"
+          ]
+        }
+      }
+    },
+    {
+      "name": "16. Get Doctor By ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctors/{{doctorId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctors",
+            "{{doctorId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "17. Check Availability",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctors/{{doctorId}}/availability?date={{slotCheckDate}}&daysToSearch={{daysToSearch}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doctors",
+            "{{doctorId}}",
+            "availability"
+          ],
+          "query": [
+            {
+              "key": "date",
+              "value": "{{slotCheckDate}}"
+            },
+            {
+              "key": "daysToSearch",
+              "value": "{{daysToSearch}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "18. Book Appointment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.data && json.data.id) {",
+              "  pm.collectionVariables.set('appointmentId', json.data.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"patientPhoneNumber\": \"9876543210\",\n  \"patientName\": \"Rahul Verma\",\n  \"reasonForVisit\": \"Chest pain follow-up\",\n  \"appointmentDate\": \"{{preferredAppointmentDate}}\",\n  \"slotStartTime\": \"{{preferredSlotStartTime}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appointments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appointments"
+          ]
+        }
+      }
+    },
+    {
+      "name": "19. Book Same Slot Again - Error Case",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"patientPhoneNumber\": \"9988776655\",\n  \"patientName\": \"Aman Singh\",\n  \"reasonForVisit\": \"Consultation\",\n  \"appointmentDate\": \"{{preferredAppointmentDate}}\",\n  \"slotStartTime\": \"{{preferredSlotStartTime}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/appointments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appointments"
+          ]
+        }
+      }
+    },
+    {
+      "name": "20. Get My Appointments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/appointments?doctorId={{doctorId}}&appointmentDate={{preferredAppointmentDate}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "doctorId",
+              "value": "{{doctorId}}"
+            },
+            {
+              "key": "appointmentDate",
+              "value": "{{preferredAppointmentDate}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "21. Get Appointment By ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/appointments/{{appointmentId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "appointments",
+            "{{appointmentId}}"
+          ]
+        }
+      }
+    }
+  ]
+}
