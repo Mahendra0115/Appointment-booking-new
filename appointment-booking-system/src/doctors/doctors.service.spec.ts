@@ -215,6 +215,32 @@ describe('DoctorsService', () => {
     });
   });
 
+  it('should report doctor unavailable when selected slot is blocked by partial leave', async () => {
+    appointmentRepository.find.mockResolvedValue([]);
+    doctorLeaveRepository.find.mockResolvedValue([
+      {
+        isFullDay: false,
+        startTime: '09:00',
+        endTime: '09:30',
+      },
+    ]);
+
+    await expect(
+      service.validateSlotForBooking('doctor-id', '2099-04-20', '09:00'),
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Doctor is unavailable at selected time.',
+        reason: 'DOCTOR_NOT_AVAILABLE',
+        nextavailableDays: 'Monday',
+        nextAvailableDate: '2099-04-20',
+        nextAvailableSlot: {
+          startTime: '09:30',
+          endTime: '10:00',
+        },
+      },
+    });
+  });
+
   it('should skip dates when doctor is on full-day leave', async () => {
     doctorLeaveRepository.find.mockImplementation(({ where }) => {
       if (where.startDate._value === '2099-04-20') {

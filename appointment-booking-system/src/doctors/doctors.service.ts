@@ -29,6 +29,11 @@ type AvailabilityBlock = {
   endTime?: string | null;
 };
 
+type SlotUnavailableDetails = {
+  message: string;
+  reason: string;
+};
+
 @Injectable()
 export class DoctorsService {
   constructor(
@@ -344,6 +349,14 @@ export class DoctorsService {
     );
 
     if (!selectedSlot) {
+      const unavailableDetails =
+        await this.getSlotUnavailableDetailsForBooking(
+          doctor,
+          appointmentDate,
+          slotStartTime,
+          schedule.message,
+          schedule.unavailableReason,
+        );
       const nextAvailable = await this.findNextAvailableDay(
         doctor,
         appointmentDate,
@@ -352,8 +365,8 @@ export class DoctorsService {
       );
 
       throw new BadRequestException({
-        message: schedule.message ?? 'This slot is already booked.',
-        reason: schedule.unavailableReason ?? 'SLOT_NOT_AVAILABLE',
+        message: unavailableDetails.message,
+        reason: unavailableDetails.reason,
         nextavailableDays: nextAvailable?.day ?? null,
         nextAvailableDate: nextAvailable?.date ?? null,
         nextAvailableSlot: nextAvailable?.slot ?? null,
@@ -463,6 +476,82 @@ export class DoctorsService {
       this.normalizeTime(slot.startTime) < this.normalizeTime(block.endTime) &&
       this.normalizeTime(slot.endTime) > this.normalizeTime(block.startTime)
     );
+  }
+
+  private async getSlotUnavailableDetailsForBooking(
+    doctor: Doctor,
+    appointmentDate: string,
+    slotStartTime: string,
+    scheduleMessage?: string | null,
+    scheduleReason?: string | null,
+  ): Promise<SlotUnavailableDetails> {
+    const normalizedRequestedStartTime = this.normalizeTime(slotStartTime);
+    const generatedSlots = this.isDoctorWorkingOnDate(doctor, appointmentDate)
+      ? this.generateSlots(doctor)
+      : [];
+    const requestedSlot = generatedSlots.find(
+      (slot) =>
+        this.normalizeTime(slot.startTime) === normalizedRequestedStartTime,
+    );
+
+    if (!requestedSlot) {
+      return {
+        message: scheduleMessage ?? 'This slot is not available for booking.',
+        reason: scheduleReason ?? 'SLOT_NOT_AVAILABLE',
+      };
+    }
+
+    const clinicClosures =
+      await this.findClinicClosuresForDate(appointmentDate);
+    if (
+      this.hasFullDayBlock(clinicClosures) ||
+      this.isBlockedByAny(requestedSlot, clinicClosures)
+    ) {
+      return {
+        message: 'Clinic is closed at selected time.',
+        reason: 'CLINIC_CLOSED',
+      };
+    }
+
+    const doctorLeaves = await this.findDoctorLeavesForDate(
+      doctor.id,
+      appointmentDate,
+    );
+    if (
+      this.hasFullDayBlock(doctorLeaves) ||
+      this.isBlockedByAny(requestedSlot, doctorLeaves)
+    ) {
+      return {
+        message: 'Doctor is unavailable at selected time.',
+        reason: 'DOCTOR_NOT_AVAILABLE',
+      };
+    }
+
+    const appointments = await this.appointmentRepository.find({
+      where: {
+        doctor: { id: doctor.id },
+        appointmentDate,
+        status: 'BOOKED',
+      },
+      order: { slotStartTime: 'ASC' },
+    });
+    const isBooked = appointments.some(
+      (appointment) =>
+        this.normalizeTime(appointment.slotStartTime) ===
+        normalizedRequestedStartTime,
+    );
+
+    if (isBooked) {
+      return {
+        message: 'This slot is already booked.',
+        reason: 'SLOT_NOT_AVAILABLE',
+      };
+    }
+
+    return {
+      message: scheduleMessage ?? 'This slot is not available for booking.',
+      reason: scheduleReason ?? 'SLOT_NOT_AVAILABLE',
+    };
   }
 
   private getUnavailableMessage(reason: string | null) {
