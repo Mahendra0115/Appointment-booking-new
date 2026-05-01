@@ -1,9 +1,18 @@
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../database/entities/base.entity';
+import { Doctor } from '../../doctors/entities/doctor.entity';
 
 @Entity('clinic_closures')
 export class ClinicClosure extends BaseEntity {
+  @ManyToOne(() => Doctor, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'doctor_id' })
+  doctor?: Doctor | null;
+
   @Column({ name: 'start_date', type: 'date' })
   startDate: string;
 

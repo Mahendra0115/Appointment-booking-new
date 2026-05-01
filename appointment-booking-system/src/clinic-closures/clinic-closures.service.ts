@@ -1,8 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { ApiResponseDto } from '../common/dto/api-response.dto';
+import { Doctor } from '../doctors/entities/doctor.entity';
 
 import { CreateClinicClosureDto } from './dto/create-clinic-closure.dto';
 import { ClinicClosure } from './entities/clinic-closure.entity';
@@ -12,12 +17,23 @@ export class ClinicClosuresService {
   constructor(
     @InjectRepository(ClinicClosure)
     private readonly clinicClosureRepository: Repository<ClinicClosure>,
+    @InjectRepository(Doctor)
+    private readonly doctorRepository: Repository<Doctor>,
   ) {}
 
-  async create(dto: CreateClinicClosureDto) {
+  async createForDoctorUser(userId: string, dto: CreateClinicClosureDto) {
+    const doctor = await this.doctorRepository.findOne({
+      where: { user: { id: userId } },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found for this user');
+    }
+
     this.validateClosureWindow(dto);
 
     const closure = this.clinicClosureRepository.create({
+      doctor,
       startDate: dto.startDate,
       endDate: dto.endDate,
       isFullDay: dto.isFullDay ?? true,
@@ -56,6 +72,7 @@ export class ClinicClosuresService {
   private toResponse(closure: ClinicClosure) {
     return {
       id: closure.id,
+      doctorId: closure.doctor?.id ?? null,
       startDate: closure.startDate,
       endDate: closure.endDate,
       isFullDay: closure.isFullDay,

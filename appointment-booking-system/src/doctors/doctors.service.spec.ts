@@ -128,6 +128,27 @@ describe('DoctorsService', () => {
     expect(result).not.toHaveProperty('schedule');
   });
 
+  it('should return calculated totalAppointmentsPerDay when profile has no manual limit', async () => {
+    const result = await service.findOne('doctor-id');
+
+    expect(result.totalAppointmentsPerDay).toBe(2);
+    expect(result.autoCalculatedTotalSlots).toBe(2);
+    expect(result.totalSlotsPerDay).toBe(2);
+  });
+
+  it('should keep manual totalAppointmentsPerDay limit in doctor response', async () => {
+    doctorRepository.findOne.mockResolvedValueOnce({
+      ...doctor,
+      totalAppointmentsPerDay: 1,
+    });
+
+    const result = await service.findOne('doctor-id');
+
+    expect(result.totalAppointmentsPerDay).toBe(1);
+    expect(result.autoCalculatedTotalSlots).toBe(2);
+    expect(result.totalSlotsPerDay).toBe(1);
+  });
+
   it('should return available slots for a selected date', async () => {
     appointmentRepository.find.mockResolvedValue([
       bookedAppointment('09:00'),
