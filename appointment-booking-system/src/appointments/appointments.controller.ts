@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -47,5 +56,14 @@ export class AppointmentsController {
   ) {
     const data = await this.appointmentsService.findOne(appointmentId, user.sub);
     return new ApiResponseDto(true, 'Appointment fetched successfully', data);
+  }
+
+  @Patch(':appointmentId/cancel')
+  async cancel(
+    @CurrentUser() user: JwtPayload,
+    @Param('appointmentId') appointmentId: string,
+  ) {
+    const data = await this.appointmentsService.cancel(appointmentId, user.sub);
+    return new ApiResponseDto(true, 'Appointment cancelled successfully', data);
   }
 }
