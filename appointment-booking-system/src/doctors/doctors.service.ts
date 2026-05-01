@@ -664,14 +664,12 @@ export class DoctorsService {
   }
 
   private toDoctorResponse(doctor: Doctor) {
-    const computedTotalSlots = Math.floor(
-      (this.timeToMinutes(doctor.consultingEndTime) -
-        this.timeToMinutes(doctor.consultingStartTime)) /
-        doctor.slotDurationMinutes,
-    );
+    const computedTotalSlots = this.calculateTotalSlots(doctor);
+    const totalAppointmentsPerDay =
+      doctor.totalAppointmentsPerDay ?? computedTotalSlots;
 
-    const totalSlotsPerDay = doctor.totalAppointmentsPerDay
-      ? Math.min(doctor.totalAppointmentsPerDay, computedTotalSlots)
+    const totalSlotsPerDay = totalAppointmentsPerDay
+      ? Math.min(totalAppointmentsPerDay, computedTotalSlots)
       : computedTotalSlots;
 
     return {
@@ -684,7 +682,7 @@ export class DoctorsService {
       consultingStartTime: doctor.consultingStartTime,
       consultingEndTime: doctor.consultingEndTime,
       slotDurationMinutes: doctor.slotDurationMinutes,
-      totalAppointmentsPerDay: doctor.totalAppointmentsPerDay,
+      totalAppointmentsPerDay,
       autoCalculatedTotalSlots: computedTotalSlots,
       totalSlotsPerDay,
       nextAvailableSearchDays: doctor.nextAvailableSearchDays,
@@ -774,6 +772,18 @@ export class DoctorsService {
 
   private uniqueDays(days: DayOfWeek[]) {
     return [...new Set(days)];
+  }
+
+  private calculateTotalSlots(doctor: {
+    consultingStartTime: string;
+    consultingEndTime: string;
+    slotDurationMinutes: number;
+  }) {
+    return Math.floor(
+      (this.timeToMinutes(doctor.consultingEndTime) -
+        this.timeToMinutes(doctor.consultingStartTime)) /
+        doctor.slotDurationMinutes,
+    );
   }
 
   private timeToMinutes(time: string) {
