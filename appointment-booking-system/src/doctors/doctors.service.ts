@@ -7,7 +7,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 
-import { DayOfWeek } from '../availability/enums/day-of-week.enum';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { ClinicClosure } from '../clinic-closures/entities/clinic-closure.entity';
 import { Role } from '../common/enums/role.enum';
@@ -17,6 +16,7 @@ import { UsersService } from '../users/users.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { Doctor } from './entities/doctor.entity';
+import { DayOfWeek } from './enums/day-of-week.enum';
 
 type Slot = {
   startTime: string;
@@ -77,6 +77,7 @@ export class DoctorsService {
       user,
       doctorName: dto.doctorName,
       specialization: dto.specialization ?? null,
+      address: dto.address ?? null,
       availableDays: this.uniqueDays(dto.availableDays),
       weeklyOffDays: this.uniqueDays(dto.weeklyOffDays ?? [DayOfWeek.SUNDAY]),
       consultingStartTime: dto.consultingStartTime,
@@ -113,6 +114,7 @@ export class DoctorsService {
         dto.specialization === undefined
           ? doctor.specialization
           : dto.specialization,
+      address: dto.address === undefined ? doctor.address : dto.address,
       availableDays: dto.availableDays
         ? this.uniqueDays(dto.availableDays)
         : doctor.availableDays,
@@ -677,6 +679,7 @@ export class DoctorsService {
       userId: doctor.user.id,
       doctorName: doctor.doctorName,
       specialization: doctor.specialization,
+      address: doctor.address,
       availableDays: doctor.availableDays,
       weeklyOffDays: doctor.weeklyOffDays,
       consultingStartTime: doctor.consultingStartTime,

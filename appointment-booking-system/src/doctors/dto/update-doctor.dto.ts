@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
@@ -6,10 +7,11 @@ import {
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
-import { DayOfWeek } from '../../availability/enums/day-of-week.enum';
+import { DayOfWeek } from '../enums/day-of-week.enum';
 
 export class UpdateDoctorDto {
   @IsOptional()
@@ -19,6 +21,12 @@ export class UpdateDoctorDto {
   @IsOptional()
   @IsString()
   specialization?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  @Transform(({ value }) => value?.trim())
+  address?: string;
 
   @IsOptional()
   @IsArray()

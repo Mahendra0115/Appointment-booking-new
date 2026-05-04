@@ -233,6 +233,43 @@ describe('AppointmentsService', () => {
     });
   });
 
+  it('should cancel a booked appointment for the patient', async () => {
+    appointmentRepository.findOne.mockResolvedValue({ ...appointment });
+
+    const result = await service.cancel('appointment-id', 'patient-user-id');
+
+    expect(appointmentRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        id: 'appointment-id',
+        patientUser: { id: 'patient-user-id' },
+      },
+    });
+    expect(appointmentRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'appointment-id',
+        status: 'CANCELLED',
+      }),
+    );
+    expect(result).toMatchObject({
+      id: 'appointment-id',
+      patientUserId: 'patient-user-id',
+      status: 'CANCELLED',
+    });
+  });
+
+  it('should not cancel an appointment that is not booked', async () => {
+    appointmentRepository.findOne.mockResolvedValue({
+      ...appointment,
+      status: 'CANCELLED',
+    });
+
+    await expect(
+      service.cancel('appointment-id', 'patient-user-id'),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(appointmentRepository.save).not.toHaveBeenCalled();
+  });
+
   it('should throw when appointment is not found for patient', async () => {
     appointmentRepository.findOne.mockResolvedValue(null);
 

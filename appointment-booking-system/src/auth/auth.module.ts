@@ -18,10 +18,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService): JwtModuleOptions => {
-        const secret =
-          configService.get<string>('jwt.secret') ??
-          configService.get<string>('JWT_SECRET') ??
-          'change_this_secret';
+        const secret = configService.getOrThrow<string>('jwt.secret');
 
         const expiresIn =
           configService.get<string>('jwt.expiresIn') ??

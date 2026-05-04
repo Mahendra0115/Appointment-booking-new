@@ -3,21 +3,27 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { Appointment } from '../appointments/entities/appointment.entity';
-import { DayOfWeek } from '../availability/enums/day-of-week.enum';
 import { ClinicClosure } from '../clinic-closures/entities/clinic-closure.entity';
 import { Role } from '../common/enums/role.enum';
 import { DoctorLeave } from '../doctor-leaves/entities/doctor-leave.entity';
 import { UsersService } from '../users/users.service';
 
 import { Doctor } from './entities/doctor.entity';
+import { DayOfWeek } from './enums/day-of-week.enum';
 import { DoctorsService } from './doctors.service';
 
 describe('DoctorsService', () => {
   let service: DoctorsService;
-  let doctorRepository: { findOne: jest.Mock };
+  let doctorRepository: {
+    create: jest.Mock;
+    findOne: jest.Mock;
+    merge: jest.Mock;
+    save: jest.Mock;
+  };
   let appointmentRepository: { find: jest.Mock };
   let doctorLeaveRepository: { find: jest.Mock };
   let clinicClosureRepository: { find: jest.Mock };
+  let usersService: { findById: jest.Mock };
 
   const doctor = {
     id: 'doctor-id',
@@ -27,6 +33,7 @@ describe('DoctorsService', () => {
     },
     doctorName: 'Dr. Meera Sharma',
     specialization: 'Cardiology',
+    address: 'Apollo Clinic, MG Road, Indore',
     availableDays: [
       DayOfWeek.MONDAY,
       DayOfWeek.TUESDAY,
@@ -53,7 +60,10 @@ describe('DoctorsService', () => {
 
   beforeEach(async () => {
     doctorRepository = {
+      create: jest.fn((data) => data),
       findOne: jest.fn().mockResolvedValue(doctor),
+      merge: jest.fn((entity, data) => ({ ...entity, ...data })),
+      save: jest.fn((data) => Promise.resolve(data)),
     };
     appointmentRepository = {
       find: jest.fn(),
@@ -63,6 +73,9 @@ describe('DoctorsService', () => {
     };
     clinicClosureRepository = {
       find: jest.fn().mockResolvedValue([]),
+    };
+    usersService = {
+      findById: jest.fn().mockResolvedValue(doctor.user),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -86,7 +99,7 @@ describe('DoctorsService', () => {
         },
         {
           provide: UsersService,
-          useValue: {},
+          useValue: usersService,
         },
       ],
     }).compile();
@@ -134,6 +147,49 @@ describe('DoctorsService', () => {
     expect(result.totalAppointmentsPerDay).toBe(2);
     expect(result.autoCalculatedTotalSlots).toBe(2);
     expect(result.totalSlotsPerDay).toBe(2);
+  });
+
+  it('should include doctor address in doctor response', async () => {
+    const result = await service.findOne('doctor-id');
+
+    expect(result.address).toBe('Apollo Clinic, MG Road, Indore');
+  });
+
+  it('should create a doctor profile with address', async () => {
+    doctorRepository.findOne.mockResolvedValueOnce(null);
+
+    const result = await service.create('doctor-user-id', {
+      doctorName: 'Dr. Meera Sharma',
+      specialization: 'Cardiology',
+      address: 'Apollo Clinic, MG Road, Indore',
+      availableDays: [DayOfWeek.MONDAY],
+      weeklyOffDays: [DayOfWeek.SUNDAY],
+      consultingStartTime: '09:00',
+      consultingEndTime: '10:00',
+      slotDurationMinutes: 30,
+    });
+
+    expect(doctorRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: 'Apollo Clinic, MG Road, Indore',
+      }),
+    );
+    expect(result.address).toBe('Apollo Clinic, MG Road, Indore');
+  });
+
+  it('should update a doctor profile address without changing other fields', async () => {
+    const result = await service.update('doctor-id', {
+      address: 'Updated Clinic Address',
+    });
+
+    expect(doctorRepository.merge).toHaveBeenCalledWith(
+      doctor,
+      expect.objectContaining({
+        address: 'Updated Clinic Address',
+      }),
+    );
+    expect(result.address).toBe('Updated Clinic Address');
+    expect(result.doctorName).toBe('Dr. Meera Sharma');
   });
 
   it('should keep manual totalAppointmentsPerDay limit in doctor response', async () => {

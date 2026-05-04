@@ -77,6 +77,28 @@ export class AppointmentsService {
     return this.toAppointmentResponse(appointment);
   }
 
+  async cancel(appointmentId: string, patientUserId: string) {
+    const appointment = await this.appointmentRepository.findOne({
+      where: {
+        id: appointmentId,
+        patientUser: { id: patientUserId },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.status !== 'BOOKED') {
+      throw new BadRequestException('Only booked appointments can be cancelled');
+    }
+
+    appointment.status = 'CANCELLED';
+
+    const savedAppointment = await this.appointmentRepository.save(appointment);
+    return this.toAppointmentResponse(savedAppointment);
+  }
+
   async findAll(
     patientUserId: string,
     doctorId?: string,

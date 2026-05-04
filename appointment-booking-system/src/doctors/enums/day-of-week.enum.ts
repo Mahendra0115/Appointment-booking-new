@@ -7,6 +7,3 @@ export enum DayOfWeek {
   SATURDAY = 'SATURDAY',
   SUNDAY = 'SUNDAY',
 }
-
-
-// update
