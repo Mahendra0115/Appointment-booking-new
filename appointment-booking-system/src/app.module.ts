@@ -28,16 +28,29 @@ import { ClinicClosuresModule } from './clinic-closures/clinic-closures.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const databaseUrl = configService.get<string>('DATABASE_URL');
+        const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+        const synchronize =
+          configService.get<string>('TYPEORM_SYNCHRONIZE') === undefined
+            ? nodeEnv !== 'production'
+            : configService.get<string>('TYPEORM_SYNCHRONIZE') === 'true';
+        const useSsl =
+          configService.get<string>('DB_SSL') === 'true' ||
+          (nodeEnv === 'production' && Boolean(databaseUrl));
+        const ssl = useSsl
+          ? {
+              rejectUnauthorized:
+                configService.get<string>('DB_SSL_REJECT_UNAUTHORIZED') !==
+                'false',
+            }
+          : undefined;
 
         if (databaseUrl) {
           return {
             type: 'postgres' as const,
             url: databaseUrl,
             autoLoadEntities: true,
-            synchronize: true,
-            ssl: {
-              rejectUnauthorized: false,
-            },
+            synchronize,
+            ssl,
           };
         }
 
@@ -49,7 +62,8 @@ import { ClinicClosuresModule } from './clinic-closures/clinic-closures.module';
           password: configService.get<string>('DB_PASSWORD'),
           database: configService.get<string>('DB_NAME'),
           autoLoadEntities: true,
-          synchronize: true,
+          synchronize,
+          ssl,
         };
       },
     }),
