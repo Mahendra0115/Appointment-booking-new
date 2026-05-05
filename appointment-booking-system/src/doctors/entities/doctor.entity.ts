@@ -1,8 +1,8 @@
 import { Column, Entity, JoinColumn, OneToOne } from 'typeorm';
 
-import { DayOfWeek } from '../../availability/enums/day-of-week.enum';
 import { BaseEntity } from '../../database/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
+import { DayOfWeek } from '../enums/day-of-week.enum';
 
 @Entity('doctors')
 export class Doctor extends BaseEntity {
@@ -18,6 +18,9 @@ export class Doctor extends BaseEntity {
 
   @Column({ type: 'varchar', length: 120, nullable: true })
   specialization?: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  address?: string | null;
 
   @Column({
     name: 'available_days',

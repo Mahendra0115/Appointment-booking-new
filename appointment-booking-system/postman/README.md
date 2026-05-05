@@ -829,3 +829,25 @@ Expected output:
   }
 }
 ```
+
+### 22. Confirm Appointment
+
+Confirms a booked appointment by the logged-in patient.
+
+```http
+PATCH {{baseUrl}}/appointments/{{appointmentId}}/confirm
+Authorization: Bearer {{patientToken}}
+```
+
+Expected output:
+
+```json
+{
+  "success": true,
+  "message": "Appointment confirmed successfully",
+  "data": {
+    "id": "appointment-id",
+    "status": "CONFIRMED"
+  }
+}
+```

@@ -377,7 +377,37 @@ days.
 }
 ```
 
-### 7. List Appointments
+### 7. Cancel Booked Appointment
+
+`PATCH /api/appointments/:appointmentId/cancel`
+
+Patients can cancel only their own booked appointments. A cancelled appointment
+is no longer counted as a booked slot, so the slot can be booked again.
+
+Sample response:
+
+```json
+{
+  "success": true,
+  "message": "Appointment cancelled successfully",
+  "data": {
+    "id": "8c0c65ca-896b-4bd7-bf74-ec2a64efb228",
+    "doctorId": "f219e00b-f598-4e5a-a816-d94b9b326ebf",
+    "doctorName": "Dr. Meera Sharma",
+    "patientPhoneNumber": "9876543210",
+    "patientName": "Rahul Verma",
+    "reasonForVisit": "Chest pain follow-up",
+    "appointmentDate": "2026-04-23",
+    "slotStartTime": "09:15:00",
+    "slotEndTime": "09:30:00",
+    "status": "CANCELLED",
+    "createdAt": "2026-04-22T11:00:00.000Z",
+    "updatedAt": "2026-04-22T11:10:00.000Z"
+  }
+}
+```
+
+### 8. List Appointments
 
 `GET /api/appointments`
 
@@ -415,7 +445,7 @@ Sample response:
 }
 ```
 
-### 8. Get Appointment By Id
+### 9. Get Appointment By Id
 
 `GET /api/appointments/:appointmentId`
 
