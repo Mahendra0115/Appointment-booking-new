@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { AppointmentRemindersService } from '../appointment-reminders/appointment-reminders.service';
 import { DoctorsService } from '../doctors/doctors.service';
 import { UsersService } from '../users/users.service';
 
@@ -14,11 +16,14 @@ import { Appointment } from './entities/appointment.entity';
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     @InjectRepository(Appointment)
     private readonly appointmentRepository: Repository<Appointment>,
     private readonly doctorsService: DoctorsService,
     private readonly usersService: UsersService,
+    private readonly appointmentRemindersService: AppointmentRemindersService,
   ) {}
 
   async create(patientUserId: string, dto: CreateAppointmentDto) {
@@ -59,6 +64,19 @@ export class AppointmentsService {
     });
 
     const savedAppointment = await this.appointmentRepository.save(appointment);
+
+    try {
+      await this.appointmentRemindersService.createRemindersForAppointment(
+        savedAppointment,
+      );
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Unknown reminder error';
+      this.logger.warn(
+        `Appointment ${savedAppointment.id} was booked but reminders were not fully prepared: ${reason}`,
+      );
+    }
+
     return this.toAppointmentResponse(savedAppointment);
   }
 
@@ -94,6 +112,33 @@ export class AppointmentsService {
     }
 
     appointment.status = 'CANCELLED';
+
+    const savedAppointment = await this.appointmentRepository.save(appointment);
+    await this.appointmentRemindersService.cancelPendingRemindersForAppointment(
+      savedAppointment.id,
+    );
+    return this.toAppointmentResponse(savedAppointment);
+  }
+
+  async confirm(appointmentId: string, patientUserId: string) {
+    const appointment = await this.appointmentRepository.findOne({
+      where: {
+        id: appointmentId,
+        patientUser: { id: patientUserId },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+
+    if (appointment.status === 'CANCELLED') {
+      throw new BadRequestException(
+        'Cancelled appointments cannot be confirmed',
+      );
+    }
+
+    appointment.status = 'CONFIRMED';
 
     const savedAppointment = await this.appointmentRepository.save(appointment);
     return this.toAppointmentResponse(savedAppointment);

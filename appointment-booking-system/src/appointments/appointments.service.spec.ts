@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AppointmentRemindersService } from '../appointment-reminders/appointment-reminders.service';
 import { Role } from '../common/enums/role.enum';
 import { DoctorsService } from '../doctors/doctors.service';
 import { UsersService } from '../users/users.service';
@@ -23,6 +24,10 @@ describe('AppointmentsService', () => {
     findNextAvailableSlotForBooking: jest.Mock;
   };
   let usersService: { findById: jest.Mock };
+  let appointmentRemindersService: {
+    createRemindersForAppointment: jest.Mock;
+    cancelPendingRemindersForAppointment: jest.Mock;
+  };
 
   const doctor = {
     id: 'doctor-id',
@@ -68,6 +73,12 @@ describe('AppointmentsService', () => {
     usersService = {
       findById: jest.fn().mockResolvedValue(patientUser),
     };
+    appointmentRemindersService = {
+      createRemindersForAppointment: jest.fn().mockResolvedValue(undefined),
+      cancelPendingRemindersForAppointment: jest.fn().mockResolvedValue(
+        undefined,
+      ),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -83,6 +94,10 @@ describe('AppointmentsService', () => {
         {
           provide: UsersService,
           useValue: usersService,
+        },
+        {
+          provide: AppointmentRemindersService,
+          useValue: appointmentRemindersService,
         },
       ],
     }).compile();
@@ -128,6 +143,9 @@ describe('AppointmentsService', () => {
       reportingTime: '09:00',
       status: 'BOOKED',
     });
+    expect(
+      appointmentRemindersService.createRemindersForAppointment,
+    ).toHaveBeenCalledWith(expect.objectContaining({ id: 'appointment-id' }));
   });
 
   it('should suggest next available slot without booking when requested slot is unavailable', async () => {
@@ -255,6 +273,9 @@ describe('AppointmentsService', () => {
       patientUserId: 'patient-user-id',
       status: 'CANCELLED',
     });
+    expect(
+      appointmentRemindersService.cancelPendingRemindersForAppointment,
+    ).toHaveBeenCalledWith('appointment-id');
   });
 
   it('should not cancel an appointment that is not booked', async () => {
@@ -276,5 +297,34 @@ describe('AppointmentsService', () => {
     await expect(
       service.findOne('missing-appointment-id', 'patient-user-id'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should confirm a booked appointment for the patient', async () => {
+    appointmentRepository.findOne.mockResolvedValue({ ...appointment });
+
+    const result = await service.confirm('appointment-id', 'patient-user-id');
+
+    expect(appointmentRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'appointment-id',
+        status: 'CONFIRMED',
+      }),
+    );
+    expect(result).toMatchObject({
+      id: 'appointment-id',
+      patientUserId: 'patient-user-id',
+      status: 'CONFIRMED',
+    });
+  });
+
+  it('should not confirm a cancelled appointment', async () => {
+    appointmentRepository.findOne.mockResolvedValue({
+      ...appointment,
+      status: 'CANCELLED',
+    });
+
+    await expect(
+      service.confirm('appointment-id', 'patient-user-id'),
+    ).rejects.toThrow(BadRequestException);
   });
 });

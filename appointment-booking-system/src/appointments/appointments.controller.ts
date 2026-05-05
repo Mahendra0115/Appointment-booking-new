@@ -66,4 +66,13 @@ export class AppointmentsController {
     const data = await this.appointmentsService.cancel(appointmentId, user.sub);
     return new ApiResponseDto(true, 'Appointment cancelled successfully', data);
   }
+
+  @Patch(':appointmentId/confirm')
+  async confirm(
+    @CurrentUser() user: JwtPayload,
+    @Param('appointmentId') appointmentId: string,
+  ) {
+    const data = await this.appointmentsService.confirm(appointmentId, user.sub);
+    return new ApiResponseDto(true, 'Appointment confirmed successfully', data);
+  }
 }

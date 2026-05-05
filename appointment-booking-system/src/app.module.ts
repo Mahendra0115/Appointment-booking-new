@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { AppointmentRemindersModule } from './appointment-reminders/appointment-reminders.module';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
@@ -23,6 +25,7 @@ import { ClinicClosuresModule } from './clinic-closures/clinic-closures.module';
       load: [appConfig, databaseConfig, jwtConfig],
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -71,12 +74,12 @@ import { ClinicClosuresModule } from './clinic-closures/clinic-closures.module';
     AuthModule,
     DoctorsModule,
     AppointmentsModule,
+    AppointmentRemindersModule,
     DoctorLeavesModule,
     ClinicClosuresModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],
-
 })
 
 export class AppModule {}
